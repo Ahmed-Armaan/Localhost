@@ -1,0 +1,63 @@
+syntax = "proto3";
+package connection;
+option go_package = "./proto;connection";
+
+service TunnelService {
+  rpc HTTPTunnel(stream HTTPMessage) returns (stream HTTPMessage) {}
+  rpc TCPTunnel(stream TCPMessage) returns (stream TCPMessage) {}
+}
+
+enum MessageType {
+  NEW_CONNECTION = 0;
+  DATA           = 1;
+  CLOSE          = 2;
+  ERROR          = 3;
+  HEARTBEAT      = 4;
+}
+
+message HTTPMessage {
+  MessageType type   = 1;
+  string jwtToken    = 2;
+  string apiKey      = 3;
+  string connId      = 4;
+  string errorData   = 5;
+  bytes rawData      = 6;
+
+  oneof payload {
+    HTTPRequestData  request  = 7;
+    HTTPResponseData response = 8;
+  }
+}
+
+message HTTPRequestData {
+  string method                  = 1;
+  string path                    = 2;
+  string query                   = 3;
+  map<string, string> headers    = 4;
+  bytes body                     = 5;
+  string httpVersion             = 6;
+}
+
+message HTTPResponseData {
+  int32 statusCode               = 1;
+  string statusText              = 2;
+  map<string, string> headers    = 3;
+  bytes body                     = 4;
+  string httpVersion             = 5;
+}
+
+message TCPMessage {
+  MessageType type   = 1;
+  string jwtToken    = 2;
+  string apiKey      = 3;
+  string connId      = 4;
+  string errorData   = 5;
+  bytes data         = 6;
+  TCPReqData meta    = 7;
+}
+
+message TCPReqData {
+  string targetHost  = 1;
+  int32  targetPort  = 2;
+  string clientIp    = 3;
+}
