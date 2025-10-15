@@ -207,13 +207,13 @@ func (*HTTPMessage_Request) isHTTPMessage_Payload() {}
 func (*HTTPMessage_Response) isHTTPMessage_Payload() {}
 
 type HTTPRequestData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Method        string                 `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
-	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
-	Query         string                 `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
-	Headers       map[string]string      `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Body          []byte                 `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	HttpVersion   string                 `protobuf:"bytes,6,opt,name=httpVersion,proto3" json:"httpVersion,omitempty"`
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Method        string                   `protobuf:"bytes,1,opt,name=method,proto3" json:"method,omitempty"`
+	Path          string                   `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Query         string                   `protobuf:"bytes,3,opt,name=query,proto3" json:"query,omitempty"`
+	Headers       map[string]*HeaderValues `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Body          []byte                   `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
+	HttpVersion   string                   `protobuf:"bytes,6,opt,name=httpVersion,proto3" json:"httpVersion,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -269,7 +269,7 @@ func (x *HTTPRequestData) GetQuery() string {
 	return ""
 }
 
-func (x *HTTPRequestData) GetHeaders() map[string]string {
+func (x *HTTPRequestData) GetHeaders() map[string]*HeaderValues {
 	if x != nil {
 		return x.Headers
 	}
@@ -291,12 +291,12 @@ func (x *HTTPRequestData) GetHttpVersion() string {
 }
 
 type HTTPResponseData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	StatusCode    int32                  `protobuf:"varint,1,opt,name=statusCode,proto3" json:"statusCode,omitempty"`
-	StatusText    string                 `protobuf:"bytes,2,opt,name=statusText,proto3" json:"statusText,omitempty"`
-	Headers       map[string]string      `protobuf:"bytes,3,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Body          []byte                 `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
-	HttpVersion   string                 `protobuf:"bytes,5,opt,name=httpVersion,proto3" json:"httpVersion,omitempty"`
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	StatusCode    int32                    `protobuf:"varint,1,opt,name=statusCode,proto3" json:"statusCode,omitempty"`
+	StatusText    string                   `protobuf:"bytes,2,opt,name=statusText,proto3" json:"statusText,omitempty"`
+	Headers       map[string]*HeaderValues `protobuf:"bytes,3,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Body          []byte                   `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
+	HttpVersion   string                   `protobuf:"bytes,5,opt,name=httpVersion,proto3" json:"httpVersion,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -345,7 +345,7 @@ func (x *HTTPResponseData) GetStatusText() string {
 	return ""
 }
 
-func (x *HTTPResponseData) GetHeaders() map[string]string {
+func (x *HTTPResponseData) GetHeaders() map[string]*HeaderValues {
 	if x != nil {
 		return x.Headers
 	}
@@ -366,6 +366,50 @@ func (x *HTTPResponseData) GetHttpVersion() string {
 	return ""
 }
 
+type HeaderValues struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HeaderValues) Reset() {
+	*x = HeaderValues{}
+	mi := &file_connection_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HeaderValues) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HeaderValues) ProtoMessage() {}
+
+func (x *HeaderValues) ProtoReflect() protoreflect.Message {
+	mi := &file_connection_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HeaderValues.ProtoReflect.Descriptor instead.
+func (*HeaderValues) Descriptor() ([]byte, []int) {
+	return file_connection_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *HeaderValues) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
 type TCPMessage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Type          MessageType            `protobuf:"varint,1,opt,name=type,proto3,enum=connection.MessageType" json:"type,omitempty"`
@@ -381,7 +425,7 @@ type TCPMessage struct {
 
 func (x *TCPMessage) Reset() {
 	*x = TCPMessage{}
-	mi := &file_connection_proto_msgTypes[3]
+	mi := &file_connection_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -393,7 +437,7 @@ func (x *TCPMessage) String() string {
 func (*TCPMessage) ProtoMessage() {}
 
 func (x *TCPMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_connection_proto_msgTypes[3]
+	mi := &file_connection_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -406,7 +450,7 @@ func (x *TCPMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TCPMessage.ProtoReflect.Descriptor instead.
 func (*TCPMessage) Descriptor() ([]byte, []int) {
-	return file_connection_proto_rawDescGZIP(), []int{3}
+	return file_connection_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *TCPMessage) GetType() MessageType {
@@ -469,7 +513,7 @@ type TCPReqData struct {
 
 func (x *TCPReqData) Reset() {
 	*x = TCPReqData{}
-	mi := &file_connection_proto_msgTypes[4]
+	mi := &file_connection_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -481,7 +525,7 @@ func (x *TCPReqData) String() string {
 func (*TCPReqData) ProtoMessage() {}
 
 func (x *TCPReqData) ProtoReflect() protoreflect.Message {
-	mi := &file_connection_proto_msgTypes[4]
+	mi := &file_connection_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -494,7 +538,7 @@ func (x *TCPReqData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TCPReqData.ProtoReflect.Descriptor instead.
 func (*TCPReqData) Descriptor() ([]byte, []int) {
-	return file_connection_proto_rawDescGZIP(), []int{4}
+	return file_connection_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *TCPReqData) GetTargetHost() string {
@@ -533,17 +577,17 @@ const file_connection_proto_rawDesc = "" +
 	"\arawData\x18\x06 \x01(\fR\arawData\x127\n" +
 	"\arequest\x18\a \x01(\v2\x1b.connection.HTTPRequestDataH\x00R\arequest\x12:\n" +
 	"\bresponse\x18\b \x01(\v2\x1c.connection.HTTPResponseDataH\x00R\bresponseB\t\n" +
-	"\apayload\"\x89\x02\n" +
+	"\apayload\"\xa3\x02\n" +
 	"\x0fHTTPRequestData\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +
 	"\x05query\x18\x03 \x01(\tR\x05query\x12B\n" +
 	"\aheaders\x18\x04 \x03(\v2(.connection.HTTPRequestData.HeadersEntryR\aheaders\x12\x12\n" +
 	"\x04body\x18\x05 \x01(\fR\x04body\x12 \n" +
-	"\vhttpVersion\x18\x06 \x01(\tR\vhttpVersion\x1a:\n" +
+	"\vhttpVersion\x18\x06 \x01(\tR\vhttpVersion\x1aT\n" +
 	"\fHeadersEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x89\x02\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12.\n" +
+	"\x05value\x18\x02 \x01(\v2\x18.connection.HeaderValuesR\x05value:\x028\x01\"\xa3\x02\n" +
 	"\x10HTTPResponseData\x12\x1e\n" +
 	"\n" +
 	"statusCode\x18\x01 \x01(\x05R\n" +
@@ -553,10 +597,12 @@ const file_connection_proto_rawDesc = "" +
 	"statusText\x12C\n" +
 	"\aheaders\x18\x03 \x03(\v2).connection.HTTPResponseData.HeadersEntryR\aheaders\x12\x12\n" +
 	"\x04body\x18\x04 \x01(\fR\x04body\x12 \n" +
-	"\vhttpVersion\x18\x05 \x01(\tR\vhttpVersion\x1a:\n" +
+	"\vhttpVersion\x18\x05 \x01(\tR\vhttpVersion\x1aT\n" +
 	"\fHeadersEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe3\x01\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12.\n" +
+	"\x05value\x18\x02 \x01(\v2\x18.connection.HeaderValuesR\x05value:\x028\x01\"&\n" +
+	"\fHeaderValues\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xe3\x01\n" +
 	"\n" +
 	"TCPMessage\x12+\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x17.connection.MessageTypeR\x04type\x12\x1a\n" +
@@ -599,34 +645,37 @@ func file_connection_proto_rawDescGZIP() []byte {
 }
 
 var file_connection_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_connection_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_connection_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_connection_proto_goTypes = []any{
 	(MessageType)(0),         // 0: connection.MessageType
 	(*HTTPMessage)(nil),      // 1: connection.HTTPMessage
 	(*HTTPRequestData)(nil),  // 2: connection.HTTPRequestData
 	(*HTTPResponseData)(nil), // 3: connection.HTTPResponseData
-	(*TCPMessage)(nil),       // 4: connection.TCPMessage
-	(*TCPReqData)(nil),       // 5: connection.TCPReqData
-	nil,                      // 6: connection.HTTPRequestData.HeadersEntry
-	nil,                      // 7: connection.HTTPResponseData.HeadersEntry
+	(*HeaderValues)(nil),     // 4: connection.HeaderValues
+	(*TCPMessage)(nil),       // 5: connection.TCPMessage
+	(*TCPReqData)(nil),       // 6: connection.TCPReqData
+	nil,                      // 7: connection.HTTPRequestData.HeadersEntry
+	nil,                      // 8: connection.HTTPResponseData.HeadersEntry
 }
 var file_connection_proto_depIdxs = []int32{
-	0, // 0: connection.HTTPMessage.type:type_name -> connection.MessageType
-	2, // 1: connection.HTTPMessage.request:type_name -> connection.HTTPRequestData
-	3, // 2: connection.HTTPMessage.response:type_name -> connection.HTTPResponseData
-	6, // 3: connection.HTTPRequestData.headers:type_name -> connection.HTTPRequestData.HeadersEntry
-	7, // 4: connection.HTTPResponseData.headers:type_name -> connection.HTTPResponseData.HeadersEntry
-	0, // 5: connection.TCPMessage.type:type_name -> connection.MessageType
-	5, // 6: connection.TCPMessage.meta:type_name -> connection.TCPReqData
-	1, // 7: connection.TunnelService.HTTPTunnel:input_type -> connection.HTTPMessage
-	4, // 8: connection.TunnelService.TCPTunnel:input_type -> connection.TCPMessage
-	1, // 9: connection.TunnelService.HTTPTunnel:output_type -> connection.HTTPMessage
-	4, // 10: connection.TunnelService.TCPTunnel:output_type -> connection.TCPMessage
-	9, // [9:11] is the sub-list for method output_type
-	7, // [7:9] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	0,  // 0: connection.HTTPMessage.type:type_name -> connection.MessageType
+	2,  // 1: connection.HTTPMessage.request:type_name -> connection.HTTPRequestData
+	3,  // 2: connection.HTTPMessage.response:type_name -> connection.HTTPResponseData
+	7,  // 3: connection.HTTPRequestData.headers:type_name -> connection.HTTPRequestData.HeadersEntry
+	8,  // 4: connection.HTTPResponseData.headers:type_name -> connection.HTTPResponseData.HeadersEntry
+	0,  // 5: connection.TCPMessage.type:type_name -> connection.MessageType
+	6,  // 6: connection.TCPMessage.meta:type_name -> connection.TCPReqData
+	4,  // 7: connection.HTTPRequestData.HeadersEntry.value:type_name -> connection.HeaderValues
+	4,  // 8: connection.HTTPResponseData.HeadersEntry.value:type_name -> connection.HeaderValues
+	1,  // 9: connection.TunnelService.HTTPTunnel:input_type -> connection.HTTPMessage
+	5,  // 10: connection.TunnelService.TCPTunnel:input_type -> connection.TCPMessage
+	1,  // 11: connection.TunnelService.HTTPTunnel:output_type -> connection.HTTPMessage
+	5,  // 12: connection.TunnelService.TCPTunnel:output_type -> connection.TCPMessage
+	11, // [11:13] is the sub-list for method output_type
+	9,  // [9:11] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_connection_proto_init() }
@@ -644,7 +693,7 @@ func file_connection_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_connection_proto_rawDesc), len(file_connection_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

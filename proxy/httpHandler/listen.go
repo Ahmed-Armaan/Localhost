@@ -3,12 +3,22 @@ package httphandler
 import (
 	"log"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 func Listenhttp() {
-	http.HandleFunc("/app/{appname}/{apppath}", portForwarder)
+	router := gin.Default()
+	router.Any("/app/:appname/*apppath", portForwarder, reqhandler)
 
-	if err := http.ListenAndServe(":9000", nil); err != nil {
-		log.Fatal("Could not start server")
+	err := router.Run(":9000")
+	if err != nil {
+		log.Fatal("Failed to start http Listener")
 	}
+}
+
+func reqhandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Received and forwarder request",
+	})
 }

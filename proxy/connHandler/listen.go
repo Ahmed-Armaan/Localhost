@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/http"
 	"sync"
 
 	pb "github.com/Ahmed-Armaan/Localhost.git/proto/proto"
@@ -20,11 +19,22 @@ const (
 
 type TunnelConn struct {
 	protocol int
-	stream   any
+	stream   pb.TunnelService_HTTPTunnelServer
 }
 
-var ActiveConn = make(map[string]TunnelConn)
-var ActiveConnmu sync.RWMutex
+type tunnelWriter struct {
+	req    *pb.HTTPRequestData
+	appId  string
+	connId string
+}
+
+var (
+	ActiveConn   = make(map[string]TunnelConn)
+	ActiveConnmu sync.RWMutex
+	Inreq        = make(chan *tunnelWriter, 2048)
+	ResChans     = make(map[string]chan *pb.HTTPResponseData)
+	ResChansmu   sync.RWMutex
+)
 
 func grpcListener() {
 	PORT := 8080
@@ -40,30 +50,18 @@ func grpcListener() {
 	}
 }
 
-func requestListener() {
-	PORT := 8081
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+func RequestListener(request *pb.HTTPRequestData, resChan chan *pb.HTTPResponseData, connId string, appId string) {
+	ResChansmu.Lock()
+	ResChans[connId] = resChan
+	ResChansmu.Unlock()
 
-	})
-
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", PORT), nil); err != nil {
-		log.Fatal("Cant start request Listener")
+	Inreq <- &tunnelWriter{
+		req:    request,
+		appId:  appId,
+		connId: connId,
 	}
 }
 
-func listen() {
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		grpcListener()
-	}()
-
-	go func() {
-		defer wg.Done()
-		requestListener()
-	}()
-
-	wg.Wait()
+func Listen() {
+	grpcListener()
 }
