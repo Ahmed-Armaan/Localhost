@@ -82,8 +82,9 @@ type HTTPMessage struct {
 	JwtToken  string                 `protobuf:"bytes,2,opt,name=jwtToken,proto3" json:"jwtToken,omitempty"`
 	ApiKey    string                 `protobuf:"bytes,3,opt,name=apiKey,proto3" json:"apiKey,omitempty"`
 	ConnId    string                 `protobuf:"bytes,4,opt,name=connId,proto3" json:"connId,omitempty"`
-	ErrorData string                 `protobuf:"bytes,5,opt,name=errorData,proto3" json:"errorData,omitempty"`
-	RawData   []byte                 `protobuf:"bytes,6,opt,name=rawData,proto3" json:"rawData,omitempty"`
+	AppId     string                 `protobuf:"bytes,5,opt,name=appId,proto3" json:"appId,omitempty"`
+	ErrorData string                 `protobuf:"bytes,6,opt,name=errorData,proto3" json:"errorData,omitempty"`
+	RawData   []byte                 `protobuf:"bytes,7,opt,name=rawData,proto3" json:"rawData,omitempty"`
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*HTTPMessage_Request
@@ -151,6 +152,13 @@ func (x *HTTPMessage) GetConnId() string {
 	return ""
 }
 
+func (x *HTTPMessage) GetAppId() string {
+	if x != nil {
+		return x.AppId
+	}
+	return ""
+}
+
 func (x *HTTPMessage) GetErrorData() string {
 	if x != nil {
 		return x.ErrorData
@@ -195,11 +203,11 @@ type isHTTPMessage_Payload interface {
 }
 
 type HTTPMessage_Request struct {
-	Request *HTTPRequestData `protobuf:"bytes,7,opt,name=request,proto3,oneof"`
+	Request *HTTPRequestData `protobuf:"bytes,8,opt,name=request,proto3,oneof"`
 }
 
 type HTTPMessage_Response struct {
-	Response *HTTPResponseData `protobuf:"bytes,8,opt,name=response,proto3,oneof"`
+	Response *HTTPResponseData `protobuf:"bytes,9,opt,name=response,proto3,oneof"`
 }
 
 func (*HTTPMessage_Request) isHTTPMessage_Payload() {}
@@ -567,16 +575,17 @@ var File_connection_proto protoreflect.FileDescriptor
 const file_connection_proto_rawDesc = "" +
 	"\n" +
 	"\x10connection.proto\x12\n" +
-	"connection\"\xbe\x02\n" +
+	"connection\"\xd4\x02\n" +
 	"\vHTTPMessage\x12+\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x17.connection.MessageTypeR\x04type\x12\x1a\n" +
 	"\bjwtToken\x18\x02 \x01(\tR\bjwtToken\x12\x16\n" +
 	"\x06apiKey\x18\x03 \x01(\tR\x06apiKey\x12\x16\n" +
-	"\x06connId\x18\x04 \x01(\tR\x06connId\x12\x1c\n" +
-	"\terrorData\x18\x05 \x01(\tR\terrorData\x12\x18\n" +
-	"\arawData\x18\x06 \x01(\fR\arawData\x127\n" +
-	"\arequest\x18\a \x01(\v2\x1b.connection.HTTPRequestDataH\x00R\arequest\x12:\n" +
-	"\bresponse\x18\b \x01(\v2\x1c.connection.HTTPResponseDataH\x00R\bresponseB\t\n" +
+	"\x06connId\x18\x04 \x01(\tR\x06connId\x12\x14\n" +
+	"\x05appId\x18\x05 \x01(\tR\x05appId\x12\x1c\n" +
+	"\terrorData\x18\x06 \x01(\tR\terrorData\x12\x18\n" +
+	"\arawData\x18\a \x01(\fR\arawData\x127\n" +
+	"\arequest\x18\b \x01(\v2\x1b.connection.HTTPRequestDataH\x00R\arequest\x12:\n" +
+	"\bresponse\x18\t \x01(\v2\x1c.connection.HTTPResponseDataH\x00R\bresponseB\t\n" +
 	"\apayload\"\xa3\x02\n" +
 	"\x0fHTTPRequestData\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x12\n" +

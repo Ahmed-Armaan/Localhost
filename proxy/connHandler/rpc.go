@@ -1,6 +1,7 @@
 package connhandler
 
 import (
+	"fmt"
 	"log"
 
 	pb "github.com/Ahmed-Armaan/Localhost.git/proto/proto"
@@ -23,9 +24,9 @@ func (s *server) HTTPTunnel(stream pb.TunnelService_HTTPTunnelServer) error {
 
 			switch msg.GetType() {
 			case pb.MessageType_NEW_CONNECTION:
-				log.Printf("new requuses from %s", msg.GetConnId())
+				log.Printf("new requuses from %s", msg.GetAppId())
 				ActiveConnmu.Lock()
-				ActiveConn[msg.GetConnId()] = TunnelConn{
+				ActiveConn[msg.GetAppId()] = TunnelConn{
 					protocol: int(Protocolhttp),
 					stream:   stream,
 				}
@@ -47,8 +48,12 @@ func (s *server) HTTPTunnel(stream pb.TunnelService_HTTPTunnelServer) error {
 					log.Println("failed to send heartbeat: ", err)
 				}
 
+			case pb.MessageType_ERROR:
+				fmt.Printf("Error:%s\nfrom App %s\n", msg.GetErrorData(), msg.GetAppId())
+
 			case pb.MessageType_DATA:
 				res := msg.GetResponse()
+				fmt.Printf("got message\n%v\n", msg)
 				if res == nil {
 					res = &pb.HTTPResponseData{
 						StatusCode: 404,
@@ -58,10 +63,12 @@ func (s *server) HTTPTunnel(stream pb.TunnelService_HTTPTunnelServer) error {
 
 				ResChansmu.Lock()
 				if ch, ok := ResChans[msg.GetConnId()]; ok {
+					fmt.Println("Written into chan")
 					ch <- res
+				} else {
+					fmt.Println("No chan LOl")
 				}
 				ResChansmu.Unlock()
-
 			}
 		}
 	}()

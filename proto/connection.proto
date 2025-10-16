@@ -20,12 +20,13 @@ message HTTPMessage {
   string jwtToken    = 2;
   string apiKey      = 3;
   string connId      = 4;
-  string errorData   = 5;
-  bytes rawData      = 6;
+  string appId       = 5;
+  string errorData   = 6;
+  bytes rawData      = 7;
 
   oneof payload {
-    HTTPRequestData  request  = 7;
-    HTTPResponseData response = 8;
+    HTTPRequestData  request  = 8;
+    HTTPResponseData response = 9;
   }
 }
 

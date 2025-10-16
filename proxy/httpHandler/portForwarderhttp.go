@@ -56,6 +56,7 @@ func portForwarder(c *gin.Context) {
 
 	select {
 	case res := <-resChan:
+		fmt.Printf("received from chan\n%v\n", res)
 		if res == nil {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "Not found",

@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"sync"
-	"time"
 
 	pb "github.com/Ahmed-Armaan/Localhost.git/proto/proto"
 	"google.golang.org/grpc"
@@ -29,48 +28,36 @@ func requestListenerLoop(stream pb.TunnelService_HTTPTunnelClient, wg *sync.Wait
 
 		switch msg.GetType() {
 		case pb.MessageType_DATA:
-			fmt.Printf("Received request:%v\n", msg)
-			sendResponse(stream)
+			fmt.Printf("Received request with connId%v\n:%v\n", msg.GetConnId(), msg)
+			reqDataChan <- reqData{
+				connId: msg.GetConnId(),
+				appId:  msg.GetAppId(),
+				req:    msg,
+			}
+
 		case pb.MessageType_HEARTBEAT:
 			fmt.Println("Heartbeat received")
 		}
 	}
 }
 
-func newConnection(stream pb.TunnelService_HTTPTunnelClient) {
+func newConnection(stream pb.TunnelService_HTTPTunnelClient, appName string) {
 	msg := &pb.HTTPMessage{
-		Type:   pb.MessageType_NEW_CONNECTION,
-		ConnId: "client-123",
+		Type:  pb.MessageType_NEW_CONNECTION,
+		AppId: appName,
 	}
 	if err := stream.Send(msg); err != nil {
 		log.Println("failed to send NEW_CONNECTION:", err)
 	}
 }
 
-func sendResponse(stream pb.TunnelService_HTTPTunnelClient) {
-	time.Sleep(2 * time.Second)
-
-	res := &pb.HTTPResponseData{
-		StatusCode: 200,
-		StatusText: "OK",
-		Headers: map[string]*pb.HeaderValues{
-			"Content-Type": {Values: []string{"text/plain"}},
-		},
-		Body: []byte("Hello from remote app!"),
-	}
-
-	msg := &pb.HTTPMessage{
-		Type:    pb.MessageType_DATA,
-		ConnId:  "client-123",
-		Payload: &pb.HTTPMessage_Response{Response: res},
-	}
-
-	if err := stream.Send(msg); err != nil {
-		log.Println("failed to send response:", err)
+func sendresponse(stream pb.TunnelService_HTTPTunnelClient, response *reqData) {
+	if err := stream.Send(response.req); err != nil {
+		log.Println("Error: could not send response back")
 	}
 }
 
-func grpcListener() {
+func GrpcListener(appName string) {
 	conn, err := grpc.NewClient("localhost:8080", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("failed to connect: %v", err)
@@ -86,7 +73,13 @@ func grpcListener() {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go requestListenerLoop(stream, &wg)
-	newConnection(stream)
+	newConnection(stream, appName)
 
-	wg.Wait()
+	go func() {
+		for response := range resDataChan {
+			sendresponse(stream, &response)
+		}
+	}()
+
+	select {}
 }
