@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  proxy:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile.proxy
+    container_name: proxy-server
+    ports:
+      - "30000:8080"
+      - "30001:9000"

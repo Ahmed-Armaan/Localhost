@@ -20,6 +20,6 @@ func main() {
 		log.Fatalf("appPort expected to be an integer\n")
 	}
 
-	connhandler.GrpcListener(appName)
+	go connhandler.GrpcListener(appName)
 	connhandler.ReqForwarder(port)
 }

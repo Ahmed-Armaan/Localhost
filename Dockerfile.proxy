@@ -1,0 +1,13 @@
+FROM golang:1.25
+
+WORKDIR /proxy_server
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY proxy/ ./proxy/
+COPY proto/ ./proto/
+WORKDIR /proxy_server/proxy/
+
+RUN go build -o proxy main.go
+CMD ["./proxy"]

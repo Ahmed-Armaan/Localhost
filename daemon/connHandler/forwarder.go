@@ -34,14 +34,13 @@ func buildHTTPHeader(req *pb.HTTPRequestData) http.Header {
 func ReqForwarder(port int) {
 	for {
 		req := <-reqDataChan
-		fmt.Printf("channel says\n%v\n", req.req.GetRequest())
 		if req.req == nil || req.req.GetRequest() == nil {
 			log.Println("nil request received")
 			continue
 		}
 
 		request := req.req.GetRequest()
-		url := fmt.Sprintf("http://127.0.0.1:%d%s", port, request.GetPath())
+		url := fmt.Sprintf("http://localhost:%d%s", port, request.GetPath())
 		if request.Query != "" {
 			url += "?" + request.Query
 		}
