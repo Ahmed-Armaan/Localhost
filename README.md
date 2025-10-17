@@ -2,6 +2,39 @@
 
 Expose your homelabs to the internet with minimal setup
 
+---
+
+##  Running the Proxy Server and Daemon
+
+## Dependencies
+```bash
+Go >= 1.25
+Docker
+```
+
+## 1. Clone the Repository
+
+```bash
+git clone https://github.com/Ahmed-Armaan/Localhost.git
+cd Localhost
+```
+
+## using docker
+```bash
+docker-compose up
+```
+
+## build
+```bash
+go build -o proxy_server proxy/main.go
+./proxy/proxy
+```
+
+## Run daemon
+git clone https://github.com/Ahmed-Armaan/Localhost.git
+cd Localhost
+go run daemon/main.go <appname> <appPort>
+
 ## Serving React Apps Over a Proxy
 
 When running a React app behind a proxy (like your daemon on `localhost:9000`), you need to configure the app to **load static files relative to the proxy path**, not the root `/`.  
