@@ -34,7 +34,7 @@ go build -o proxy_server proxy/main.go
 ```bash
 git clone https://github.com/Ahmed-Armaan/Localhost.git
 cd Localhost
-go run daemon/main.go <appname> <appPort>
+go run daemon/main.go <appname> <appPort> <protocol> //"tcp" or "http"
 ```
 
 ## Serving React Apps Over a Proxy
