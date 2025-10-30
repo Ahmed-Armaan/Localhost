@@ -18,22 +18,32 @@ const (
 )
 
 type TunnelConn struct {
-	protocol int
-	stream   pb.TunnelService_HTTPTunnelServer
+	protocol   int
+	httpStream pb.TunnelService_HTTPTunnelServer
+	tcpStream  pb.TunnelService_TCPTunnelServer
 }
 
 type tunnelWriter struct {
-	req    *pb.HTTPRequestData
-	appId  string
-	connId string
+	httpReq *pb.HTTPRequestData
+	tcpReq  *pb.TCPMessage
+	appId   string
+	connId  string
 }
 
 var (
-	ActiveConn   = make(map[string]TunnelConn)
-	ActiveConnmu sync.RWMutex
-	Inreq        = make(chan *tunnelWriter, 2048)
-	ResChans     = make(map[string]chan *pb.HTTPResponseData)
-	ResChansmu   sync.RWMutex
+	ActiveHttpConn   = make(map[string]TunnelConn)
+	ActiveHttpConnmu sync.RWMutex
+	HttpInreq        = make(chan *tunnelWriter, 2048)
+	HttpResChans     = make(map[string]chan *pb.HTTPResponseData)
+	HttpResChansmu   sync.RWMutex
+)
+
+var (
+	ActiveTcpConn   = make(map[string]TunnelConn)
+	ActiveTcpConnmu sync.RWMutex
+	TcpInreq        = make(chan *tunnelWriter, 2048)
+	TcpResChans     = make(map[string]chan *pb.TCPMessage)
+	TcpResChansmu   sync.RWMutex
 )
 
 func grpcListener() {
@@ -45,18 +55,32 @@ func grpcListener() {
 
 	s := grpc.NewServer()
 	pb.RegisterTunnelServiceServer(s, &server{})
+	log.Printf("gRPC tunnel server listening on port %d", PORT)
+
 	if err := s.Serve(lis); err != nil {
-		log.Fatal("failed to start grpc server: %v", err)
+		log.Fatalf("failed to start grpc server: %v", err)
 	}
 }
 
-func RequestListener(request *pb.HTTPRequestData, resChan chan *pb.HTTPResponseData, connId string, appId string) {
-	ResChansmu.Lock()
-	ResChans[connId] = resChan
-	ResChansmu.Unlock()
+func HttpRequestListener(request *pb.HTTPRequestData, resChan chan *pb.HTTPResponseData, connId string, appId string) {
+	HttpResChansmu.Lock()
+	HttpResChans[connId] = resChan
+	HttpResChansmu.Unlock()
 
-	Inreq <- &tunnelWriter{
-		req:    request,
+	HttpInreq <- &tunnelWriter{
+		httpReq: request,
+		appId:   appId,
+		connId:  connId,
+	}
+}
+
+func TcpRequestListener(request *pb.TCPMessage, resChan chan *pb.TCPMessage, connId string, appId string) {
+	TcpResChansmu.Lock()
+	TcpResChans[connId] = resChan
+	TcpResChansmu.Unlock()
+
+	TcpInreq <- &tunnelWriter{
+		tcpReq: request,
 		appId:  appId,
 		connId: connId,
 	}

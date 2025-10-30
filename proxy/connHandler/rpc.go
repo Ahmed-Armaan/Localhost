@@ -23,19 +23,34 @@ func (s *server) HTTPTunnel(stream pb.TunnelService_HTTPTunnelServer) error {
 			}
 
 			switch msg.GetType() {
+
 			case pb.MessageType_NEW_CONNECTION:
-				log.Printf("new requuses from %s", msg.GetAppId())
-				ActiveConnmu.Lock()
-				ActiveConn[msg.GetAppId()] = TunnelConn{
-					protocol: int(Protocolhttp),
-					stream:   stream,
+				log.Printf("new HTTP connection from %s", msg.GetAppId())
+				ActiveHttpConnmu.Lock()
+				ActiveHttpConn[msg.GetAppId()] = TunnelConn{
+					protocol:   int(Protocolhttp),
+					httpStream: stream,
 				}
-				ActiveConnmu.Unlock()
+				ActiveHttpConnmu.Unlock()
+
+				connectionMessage := &pb.HTTPMessage{
+					Type: pb.MessageType_NEW_CONNECTION,
+					Payload: &pb.HTTPMessage_Response{
+						Response: &pb.HTTPResponseData{
+							StatusCode: 200,
+							StatusText: `Connected: Access at URL "comingsoon.com"`,
+						},
+					},
+				}
+
+				if err := stream.Send(connectionMessage); err != nil {
+					log.Println("Failed to send connection confirmation")
+				}
 
 			case pb.MessageType_CLOSE:
-				ActiveConnmu.Lock()
-				delete(ActiveConn, msg.GetConnId())
-				ActiveConnmu.Unlock()
+				ActiveHttpConnmu.Lock()
+				delete(ActiveHttpConn, msg.GetConnId())
+				ActiveHttpConnmu.Unlock()
 				return
 
 			case pb.MessageType_HEARTBEAT:
@@ -43,17 +58,15 @@ func (s *server) HTTPTunnel(stream pb.TunnelService_HTTPTunnelServer) error {
 					Type:    pb.MessageType_HEARTBEAT,
 					RawData: []byte("pong"),
 				}
-
 				if err = stream.Send(pingBack); err != nil {
-					log.Println("failed to send heartbeat: ", err)
+					log.Println("failed to send heartbeat:", err)
 				}
 
 			case pb.MessageType_ERROR:
-				fmt.Printf("Error:%s\nfrom App %s\n", msg.GetErrorData(), msg.GetAppId())
+				fmt.Printf("Error from App %s: %s\n", msg.GetAppId(), msg.GetErrorData())
 
 			case pb.MessageType_DATA:
 				res := msg.GetResponse()
-				fmt.Printf("got message\n%v\n", msg)
 				if res == nil {
 					res = &pb.HTTPResponseData{
 						StatusCode: 404,
@@ -61,37 +74,148 @@ func (s *server) HTTPTunnel(stream pb.TunnelService_HTTPTunnelServer) error {
 					}
 				}
 
-				ResChansmu.Lock()
-				if ch, ok := ResChans[msg.GetConnId()]; ok {
-					fmt.Println("Written into chan")
+				HttpResChansmu.Lock()
+				if ch, ok := HttpResChans[msg.GetConnId()]; ok {
 					ch <- res
 				} else {
-					fmt.Println("No chan LOl")
+					log.Printf("Response channel not found for connId: %s", msg.GetConnId())
 				}
-				ResChansmu.Unlock()
+				HttpResChansmu.Unlock()
 			}
 		}
 	}()
 
 	for {
 		select {
-		case req := <-Inreq:
+		case req := <-HttpInreq:
 			request := &pb.HTTPMessage{
 				Type:   pb.MessageType_DATA,
 				ConnId: req.connId,
 				Payload: &pb.HTTPMessage_Request{
-					Request: req.req,
+					Request: req.httpReq,
 				},
 			}
 
-			ActiveConnmu.Lock()
-			if err := ActiveConn[req.appId].stream.Send(request); err != nil {
+			ActiveHttpConnmu.RLock()
+			conn, ok := ActiveHttpConn[req.appId]
+			ActiveHttpConnmu.RUnlock()
+
+			if !ok || conn.httpStream == nil {
+				log.Printf("no active HTTP stream for appId: %s", req.appId)
+				continue
+			}
+
+			if err := conn.httpStream.Send(request); err != nil {
+				log.Printf("failed to send request to app %s: %v", req.appId, err)
 				return err
 			}
-			ActiveConnmu.Unlock()
 
 		case err := <-errChan:
 			return err
+
+		case <-stream.Context().Done():
+			return nil
+		}
+	}
+}
+
+func (s *server) TCPTunnel(stream pb.TunnelService_TCPTunnelServer) error {
+	errChan := make(chan error)
+
+	go func() {
+		for {
+			msg, err := stream.Recv()
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			switch msg.GetType() {
+			case pb.MessageType_NEW_CONNECTION:
+				log.Printf("new TCP connection from %s", msg.GetAppId())
+				ActiveTcpConnmu.Lock()
+				ActiveTcpConn[msg.GetAppId()] = TunnelConn{
+					protocol:  int(Protocoltcp),
+					tcpStream: stream,
+				}
+				ActiveTcpConnmu.Unlock()
+
+				connMsg := &pb.TCPMessage{
+					Type: pb.MessageType_NEW_CONNECTION,
+					Meta: &pb.TCPReqData{
+						ClientIp: "registered",
+					},
+				}
+				if err := stream.Send(connMsg); err != nil {
+					log.Printf("failed to send TCP registration confirmation: %v", err)
+				}
+
+			case pb.MessageType_CLOSE:
+				ActiveTcpConnmu.Lock()
+				delete(ActiveTcpConn, msg.GetAppId())
+				ActiveTcpConnmu.Unlock()
+				return
+
+			case pb.MessageType_HEARTBEAT:
+				pingBack := &pb.TCPMessage{
+					Type: pb.MessageType_HEARTBEAT,
+					Data: []byte("pong"),
+				}
+				if err = stream.Send(pingBack); err != nil {
+					log.Println("failed to send TCP heartbeat:", err)
+				}
+
+			case pb.MessageType_ERROR:
+				log.Printf("TCP error from app %s: %s", msg.GetAppId(), msg.GetErrorData())
+
+			case pb.MessageType_DATA:
+				// msg.Data contains bytes from the agent intended for external client
+				// deliver that to the waiting channel keyed by connId
+				TcpResChansmu.Lock()
+				if ch, ok := TcpResChans[msg.GetConnId()]; ok {
+					// deliver message to requester
+					ch <- msg
+				} else {
+					log.Printf("TCP response channel not found for connId: %s", msg.GetConnId())
+				}
+				TcpResChansmu.Unlock()
+			}
+		}
+	}()
+
+	// Main loop: send messages *to* the daemon when there are incoming TCP requests
+	for {
+		select {
+		case req := <-TcpInreq:
+			// build pb.TCPMessage to send to daemon
+			m := &pb.TCPMessage{
+				Type:   pb.MessageType_DATA,
+				ConnId: req.connId,
+				Meta:   req.tcpReq.Meta,
+			}
+			// if you have raw bytes for this request (recommended), attach them:
+			if req.tcpReq.Data != nil {
+				m.Data = req.tcpReq.Data
+			}
+
+			ActiveTcpConnmu.RLock()
+			conn, ok := ActiveTcpConn[req.appId]
+			ActiveTcpConnmu.RUnlock()
+
+			if !ok || conn.tcpStream == nil {
+				log.Printf("no active TCP stream for appId: %s", req.appId)
+				// consider notifying requester on a channel that service not available
+				continue
+			}
+
+			if err := conn.tcpStream.Send(m); err != nil {
+				log.Printf("failed to send TCP request to app %s: %v", req.appId, err)
+				return err
+			}
+
+		case err := <-errChan:
+			return err
+
 		case <-stream.Context().Done():
 			return nil
 		}

@@ -31,7 +31,7 @@ func buildHTTPHeader(req *pb.HTTPRequestData) http.Header {
 	return headers
 }
 
-func ReqForwarder(port int) {
+func HttpReqForwarder(port int) {
 	for {
 		req := <-reqDataChan
 		if req.req == nil || req.req.GetRequest() == nil {

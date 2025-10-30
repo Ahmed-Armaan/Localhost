@@ -56,9 +56,10 @@ message TCPMessage {
   string jwtToken    = 2;
   string apiKey      = 3;
   string connId      = 4;
-  string errorData   = 5;
-  bytes data         = 6;
-  TCPReqData meta    = 7;
+  string appId       = 5;
+  string errorData   = 6;
+  bytes data         = 7;
+  TCPReqData meta    = 8;
 }
 
 message TCPReqData {

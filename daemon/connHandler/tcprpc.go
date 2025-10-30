@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"sync"
 
 	pb "github.com/Ahmed-Armaan/Localhost.git/proto/proto"
@@ -12,7 +13,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func requestListenerLoop(stream pb.TunnelService_HTTPTunnelClient, wg *sync.WaitGroup) {
+func tcpRequestListenerLoop(stream pb.TunnelService_TCPTunnelClient, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -27,9 +28,16 @@ func requestListenerLoop(stream pb.TunnelService_HTTPTunnelClient, wg *sync.Wait
 		}
 
 		switch msg.GetType() {
+		case pb.MessageType_NEW_CONNECTION:
+			if msg.GetMeta().ClientIp != "registered" {
+				log.Fatal("Connection failed")
+			} else {
+				fmt.Printf("Connected: Access app at\n")
+			}
+
 		case pb.MessageType_DATA:
 			fmt.Printf("Received request with connId%v\n:%v\n", msg.GetConnId(), msg)
-			reqDataChan <- reqData{
+			tcpResDataChan <- tcpreqData{
 				connId: msg.GetConnId(),
 				appId:  msg.GetAppId(),
 				req:    msg,
@@ -41,8 +49,8 @@ func requestListenerLoop(stream pb.TunnelService_HTTPTunnelClient, wg *sync.Wait
 	}
 }
 
-func newConnection(stream pb.TunnelService_HTTPTunnelClient, appName string) {
-	msg := &pb.HTTPMessage{
+func newTcpConnection(stream pb.TunnelService_TCPTunnelClient, appName string) {
+	msg := &pb.TCPMessage{
 		Type:  pb.MessageType_NEW_CONNECTION,
 		AppId: appName,
 	}
@@ -51,13 +59,13 @@ func newConnection(stream pb.TunnelService_HTTPTunnelClient, appName string) {
 	}
 }
 
-func sendresponse(stream pb.TunnelService_HTTPTunnelClient, response *reqData) {
+func sendTcpResponse(stream pb.TunnelService_TCPTunnelClient, response *tcpreqData) {
 	if err := stream.Send(response.req); err != nil {
 		log.Println("Error: could not send response back")
 	}
 }
 
-func GrpcListener(appName string) {
+func GrpcTcpListener(appName string) {
 	conn, err := grpc.NewClient("localhost:30000", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("failed to connect: %v", err)
@@ -65,20 +73,35 @@ func GrpcListener(appName string) {
 	defer conn.Close()
 
 	client := pb.NewTunnelServiceClient(conn)
-	stream, err := client.HTTPTunnel(context.Background())
+	stream, err := client.TCPTunnel(context.Background())
 	if err != nil {
 		log.Fatalf("failed to start stream: %v", err)
 	}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go requestListenerLoop(stream, &wg)
-	newConnection(stream, appName)
+	go tcpRequestListenerLoop(stream, &wg)
+	newTcpConnection(stream, appName)
 
+	// --- Persistent connection to local client ---
 	go func() {
-		for response := range resDataChan {
-			fmt.Printf("Response = \n%v\n", response)
-			sendresponse(stream, &response)
+		localConn, err := net.Dial("tcp", "localhost:3001")
+		if err != nil {
+			log.Printf("Failed to connect to local test client: %v\n", err)
+			return
+		}
+		defer localConn.Close()
+
+		for response := range tcpResDataChan {
+			fmt.Printf("Forwarding to local client: %v\n", response)
+
+			data := response.req.GetData() // or response.Data, depending on your struct
+
+			_, err := localConn.Write([]byte(data))
+			if err != nil {
+				log.Printf("Failed to send data to local client: %v\n", err)
+				break
+			}
 		}
 	}()
 

@@ -52,7 +52,7 @@ func portForwarder(c *gin.Context) {
 	}
 	resChan := make(chan *pb.HTTPResponseData)
 
-	connhandler.RequestListener(&currReq, resChan, uuid.NewString(), c.Param("appname"))
+	connhandler.HttpRequestListener(&currReq, resChan, uuid.NewString(), c.Param("appname"))
 
 	select {
 	case res := <-resChan:

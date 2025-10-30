@@ -9,17 +9,24 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 3 {
+	if len(os.Args) < 4 {
 		log.Fatalf("Expected os args\nrun <appName> <port>\n")
 	}
 	appName := os.Args[1]
 	appPort := os.Args[2]
+	protocol := os.Args[3]
 
 	port, err := strconv.Atoi(appPort)
 	if err != nil {
 		log.Fatalf("appPort expected to be an integer\n")
 	}
 
-	go connhandler.GrpcListener(appName)
-	connhandler.ReqForwarder(port)
+	switch protocol {
+	case "http":
+		go connhandler.GrpcListener(appName)
+		connhandler.HttpReqForwarder(port)
+	case "tcp":
+		go connhandler.GrpcTcpListener(appName)
+		connhandler.TcpReqForwarder(port)
+	}
 }
