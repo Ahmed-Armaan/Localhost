@@ -47,7 +47,7 @@ func establishConn(conn net.Conn) (bool, error, chan *pb.TCPMessage, string, str
 	currReq := &pb.TCPMessage{
 		Type: pb.MessageType_NEW_CONNECTION,
 		Meta: &pb.TCPReqData{
-			TargetHost: reqJson.App, // "App" used to identify which local app
+			TargetHost: reqJson.App,
 			TargetPort: int32(remotePort),
 			ClientIp:   remoteAddr[0],
 		},
@@ -61,20 +61,31 @@ func establishConn(conn net.Conn) (bool, error, chan *pb.TCPMessage, string, str
 }
 
 func reqHandler(conn net.Conn, resChan chan *pb.TCPMessage, connId string, appName string) {
+	defer conn.Close()
+
 	go func() {
-		reader := bufio.NewReader(conn)
-		data := make([]byte, 4096)
+		defer func() {
+			connhandler.TcpResponder(&pb.TCPMessage{
+				Type: pb.MessageType_CLOSE,
+			}, connId, appName)
+		}()
+
+		buff := make([]byte, 4096)
 		for {
-			n, err := reader.Read(data)
+			n, err := conn.Read(buff)
 			if err != nil {
-				log.Printf("Could not read received request: %v\n", err)
+				log.Printf("Connection closed or error: %v\n", err)
 				return
 			}
 			if n > 0 {
-				fmt.Printf("conn says: %s\n", data[:n])
+				fmt.Printf("conn says: %s\n", buff[:n])
+
+				dataCopy := make([]byte, n)
+				copy(dataCopy, buff[:n])
+
 				currReq := pb.TCPMessage{
 					Type: pb.MessageType_DATA,
-					Data: data[:n],
+					Data: dataCopy,
 				}
 				connhandler.TcpResponder(&currReq, connId, appName)
 			}
@@ -83,29 +94,14 @@ func reqHandler(conn net.Conn, resChan chan *pb.TCPMessage, connId string, appNa
 
 	for res := range resChan {
 		if res.Type == pb.MessageType_CLOSE {
-			conn.Close()
 			return
 		}
 		if len(res.Data) > 0 {
 			_, err := conn.Write(res.Data)
 			if err != nil {
 				log.Printf("Could not write TCP payload: %v\n", err)
+				return
 			}
 		}
 	}
 }
-
-//func reqHandler(conn net.Conn, resChan chan *pb.TCPMessage) {
-//	for res := range resChan {
-//		if res.Type == pb.MessageType_CLOSE {
-//			conn.Close()
-//			return
-//		}
-//		if len(res.Data) > 0 {
-//			_, err := conn.Write(res.Data)
-//			if err != nil {
-//				log.Printf("Could not write TCP payload: %v\n", err)
-//			}
-//		}
-//	}
-//}

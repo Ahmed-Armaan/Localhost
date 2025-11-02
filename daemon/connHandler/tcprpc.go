@@ -14,7 +14,6 @@ import (
 
 func tcpListenerLoop(stream pb.TunnelService_TCPTunnelClient, wg *sync.WaitGroup, port int, appName string) {
 	defer wg.Done()
-
 	for {
 		msg, err := stream.Recv()
 		if err != nil {
@@ -28,20 +27,52 @@ func tcpListenerLoop(stream pb.TunnelService_TCPTunnelClient, wg *sync.WaitGroup
 
 		switch msg.GetType() {
 		case pb.MessageType_NEW_CONNECTION:
-			if msg.GetMeta().ClientIp != "registered" {
-				log.Fatalf("Connection failed")
+			if msg.GetMeta().GetClientIp() != "registered" {
+				log.Println("Registration failed")
 			} else {
-				fmt.Println("Connected")
-				connId := msg.GetConnId()
-				go connectApp(port)
-				go sendTcpResponse(stream, connId, appName)
+				fmt.Println("Daemon registered with proxy")
 			}
 
 		case pb.MessageType_DATA:
-			fmt.Printf("Received request with connId%v\n:%v\n", msg.GetConnId(), msg)
-			if msg.GetData() != nil {
-				tcpReqDataChan <- msg.GetData()
+			connId := msg.GetConnId()
+			fmt.Printf("Received request for connId: %s\n", connId)
+
+			tcpConnectionsMu.RLock()
+			conn, exists := tcpConnections[connId]
+			tcpConnectionsMu.RUnlock()
+
+			if !exists {
+				fmt.Printf("Creating new app connection for connId: %s\n", connId)
+				conn = &tcpConnection{
+					reqChan: make(chan []byte, 100),
+					resChan: make(chan []byte, 100),
+				}
+
+				tcpConnectionsMu.Lock()
+				tcpConnections[connId] = conn
+				tcpConnectionsMu.Unlock()
+
+				go connectApp(port, conn, connId)
+				go sendTcpResponse(stream, conn.resChan, connId, appName)
 			}
+
+			if msg.GetData() != nil {
+				conn.reqChan <- msg.GetData()
+			}
+
+		case pb.MessageType_CLOSE:
+			connId := msg.GetConnId()
+			fmt.Printf("Closing connection: %s\n", connId)
+
+			tcpConnectionsMu.Lock()
+			if conn, exists := tcpConnections[connId]; exists {
+				close(conn.reqChan)
+				if conn.appConn != nil {
+					conn.appConn.Close()
+				}
+				delete(tcpConnections, connId)
+			}
+			tcpConnectionsMu.Unlock()
 		}
 	}
 }
@@ -51,25 +82,24 @@ func newTcpConnection(stream pb.TunnelService_TCPTunnelClient, appName string) {
 		Type:  pb.MessageType_NEW_CONNECTION,
 		AppId: appName,
 	}
-
 	if err := stream.Send(msg); err != nil {
 		log.Println("failed to send NEW_CONNECTION:", err)
 	}
 }
 
-func sendTcpResponse(stream pb.TunnelService_TCPTunnelClient, connId string, appName string) {
-	for res := range tcpResDataChan {
+func sendTcpResponse(stream pb.TunnelService_TCPTunnelClient, resChan chan []byte, connId string, appName string) {
+	for res := range resChan {
 		msg := &pb.TCPMessage{
 			Type:   pb.MessageType_DATA,
 			Data:   res,
 			ConnId: connId,
 			AppId:  appName,
 		}
-
 		if err := stream.Send(msg); err != nil {
-			log.Printf("Cant send response: %v\n", err)
+			log.Printf("Can't send response: %v\n", err)
 			return
 		}
+		fmt.Printf("Sent response for connId: %s\n", connId)
 	}
 }
 
