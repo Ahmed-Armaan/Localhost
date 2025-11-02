@@ -37,6 +37,13 @@ cd Localhost
 go run daemon/main.go <appname> <appPort> <protocol> //"tcp" or "http"
 ```
 
+## Connecting to a tcp server
+
+To connect to a homelab over tcp, you need to first create a handshake with the desiresd app's name:
+```json
+{"app":"appName"}
+```
+
 ## Serving React Apps Over a Proxy
 
 When running a React app behind a proxy (like your daemon on `localhost:9000`), you need to configure the app to **load static files relative to the proxy path**, not the root `/`.  
