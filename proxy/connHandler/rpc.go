@@ -169,11 +169,8 @@ func (s *server) TCPTunnel(stream pb.TunnelService_TCPTunnelServer) error {
 				log.Printf("TCP error from app %s: %s", msg.GetAppId(), msg.GetErrorData())
 
 			case pb.MessageType_DATA:
-				// msg.Data contains bytes from the agent intended for external client
-				// deliver that to the waiting channel keyed by connId
 				TcpResChansmu.Lock()
 				if ch, ok := TcpResChans[msg.GetConnId()]; ok {
-					// deliver message to requester
 					ch <- msg
 				} else {
 					log.Printf("TCP response channel not found for connId: %s", msg.GetConnId())
@@ -183,19 +180,14 @@ func (s *server) TCPTunnel(stream pb.TunnelService_TCPTunnelServer) error {
 		}
 	}()
 
-	// Main loop: send messages *to* the daemon when there are incoming TCP requests
 	for {
 		select {
 		case req := <-TcpInreq:
-			// build pb.TCPMessage to send to daemon
 			m := &pb.TCPMessage{
 				Type:   pb.MessageType_DATA,
 				ConnId: req.connId,
-				Meta:   req.tcpReq.Meta,
-			}
-			// if you have raw bytes for this request (recommended), attach them:
-			if req.tcpReq.Data != nil {
-				m.Data = req.tcpReq.Data
+				Data:   req.tcpReq.GetData(),
+				Meta:   req.tcpReq.GetMeta(),
 			}
 
 			ActiveTcpConnmu.RLock()
@@ -204,7 +196,6 @@ func (s *server) TCPTunnel(stream pb.TunnelService_TCPTunnelServer) error {
 
 			if !ok || conn.tcpStream == nil {
 				log.Printf("no active TCP stream for appId: %s", req.appId)
-				// consider notifying requester on a channel that service not available
 				continue
 			}
 

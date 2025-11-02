@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -21,27 +22,26 @@ type establishReq struct {
 	App string `json:"app"`
 }
 
-func establishConn(conn net.Conn) (bool, error, chan *pb.TCPMessage) {
+func establishConn(conn net.Conn) (bool, error, chan *pb.TCPMessage, string, string) {
 	// establish a new connection and map it to the app requested
 	// read the JSON send as data packet
 	reader := bufio.NewReader(conn)
 
 	reqData, err := reader.ReadBytes('\n')
 	if err != nil {
-		return false, fmt.Errorf("failed to read handshake: %w", err), nil
+		return false, fmt.Errorf("failed to read handshake: %w", err), nil, "", ""
 	}
-	fmt.Println(reader)
 
 	var reqJson establishReq
 	if err := json.Unmarshal(reqData, &reqJson); err != nil {
 		conn.Write([]byte("Invalid payload\n"))
-		return false, err, nil
+		return false, err, nil, "", ""
 	}
 
 	remoteAddr := strings.Split(conn.RemoteAddr().String(), ":")
 	remotePort, err := strconv.Atoi(remoteAddr[1])
 	if err != nil {
-		return false, fmt.Errorf("invalid remote port: %w", err), nil
+		return false, fmt.Errorf("invalid remote port: %w", err), nil, "", ""
 	}
 
 	currReq := &pb.TCPMessage{
@@ -54,18 +54,58 @@ func establishConn(conn net.Conn) (bool, error, chan *pb.TCPMessage) {
 	}
 
 	resChan := make(chan *pb.TCPMessage)
-	connhandler.TcpRequestListener(currReq, resChan, uuid.NewString(), reqJson.App)
-	return true, nil, resChan
+	connId := uuid.NewString()
+	appName := reqJson.App
+	connhandler.TcpRequestListener(currReq, resChan, connId, appName)
+	return true, nil, resChan, connId, appName
 }
 
-func reqHandler(conn net.Conn, resChan chan *pb.TCPMessage) {
+func reqHandler(conn net.Conn, resChan chan *pb.TCPMessage, connId string, appName string) {
+	go func() {
+		reader := bufio.NewReader(conn)
+		data := make([]byte, 4096)
+		for {
+			n, err := reader.Read(data)
+			if err != nil {
+				log.Printf("Could not read received request: %v\n", err)
+				return
+			}
+			if n > 0 {
+				fmt.Printf("conn says: %s\n", data[:n])
+				currReq := pb.TCPMessage{
+					Type: pb.MessageType_DATA,
+					Data: data[:n],
+				}
+				connhandler.TcpResponder(&currReq, connId, appName)
+			}
+		}
+	}()
+
 	for res := range resChan {
 		if res.Type == pb.MessageType_CLOSE {
 			conn.Close()
 			return
 		}
 		if len(res.Data) > 0 {
-			conn.Write(res.Data)
+			_, err := conn.Write(res.Data)
+			if err != nil {
+				log.Printf("Could not write TCP payload: %v\n", err)
+			}
 		}
 	}
 }
+
+//func reqHandler(conn net.Conn, resChan chan *pb.TCPMessage) {
+//	for res := range resChan {
+//		if res.Type == pb.MessageType_CLOSE {
+//			conn.Close()
+//			return
+//		}
+//		if len(res.Data) > 0 {
+//			_, err := conn.Write(res.Data)
+//			if err != nil {
+//				log.Printf("Could not write TCP payload: %v\n", err)
+//			}
+//		}
+//	}
+//}

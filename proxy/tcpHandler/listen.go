@@ -11,7 +11,6 @@ func ListenTcp() {
 	if err != nil {
 		log.Fatalf("Error: Can't start TCP server: %v\n", err)
 	}
-	fmt.Println("1")
 
 	for {
 		conn, err := lis.Accept()
@@ -19,15 +18,16 @@ func ListenTcp() {
 			log.Printf("Failed to accept TCP request: %v\n", err)
 			continue
 		}
-
+		fmt.Printf("New request received:\n")
 		go handleNewConn(conn)
 	}
 }
 
 func handleNewConn(conn net.Conn) {
-	established, err, resChan := establishConn(conn)
+	established, err, resChan, connId, appName := establishConn(conn)
 	if established {
-		reqHandler(conn, resChan)
+		fmt.Println("Established")
+		reqHandler(conn, resChan, connId, appName)
 	} else {
 		log.Printf("Rejected connection: %v\n", err)
 		conn.Close()

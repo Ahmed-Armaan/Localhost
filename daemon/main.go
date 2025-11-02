@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/Ahmed-Armaan/Localhost.git/daemon/connHandler"
 )
@@ -26,7 +27,10 @@ func main() {
 		go connhandler.GrpcListener(appName)
 		connhandler.HttpReqForwarder(port)
 	case "tcp":
-		go connhandler.GrpcTcpListener(appName)
-		connhandler.TcpReqForwarder(port)
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			connhandler.GrpcTcpListener(appName, port)
+		})
+		wg.Wait()
 	}
 }

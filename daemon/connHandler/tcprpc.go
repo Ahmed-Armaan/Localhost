@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"sync"
 
 	pb "github.com/Ahmed-Armaan/Localhost.git/proto/proto"
@@ -13,16 +12,16 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func tcpRequestListenerLoop(stream pb.TunnelService_TCPTunnelClient, wg *sync.WaitGroup) {
+func tcpListenerLoop(stream pb.TunnelService_TCPTunnelClient, wg *sync.WaitGroup, port int, appName string) {
 	defer wg.Done()
 
 	for {
 		msg, err := stream.Recv()
 		if err != nil {
 			if err == io.EOF {
-				log.Println("stream closed")
+				log.Println("Stream closed")
 			} else {
-				log.Printf("stream error: %v\n", err)
+				log.Printf("Stream error: %v\n", err)
 			}
 			return
 		}
@@ -30,21 +29,19 @@ func tcpRequestListenerLoop(stream pb.TunnelService_TCPTunnelClient, wg *sync.Wa
 		switch msg.GetType() {
 		case pb.MessageType_NEW_CONNECTION:
 			if msg.GetMeta().ClientIp != "registered" {
-				log.Fatal("Connection failed")
+				log.Fatalf("Connection failed")
 			} else {
-				fmt.Printf("Connected: Access app at\n")
+				fmt.Println("Connected")
+				connId := msg.GetConnId()
+				go connectApp(port)
+				go sendTcpResponse(stream, connId, appName)
 			}
 
 		case pb.MessageType_DATA:
 			fmt.Printf("Received request with connId%v\n:%v\n", msg.GetConnId(), msg)
-			tcpResDataChan <- tcpreqData{
-				connId: msg.GetConnId(),
-				appId:  msg.GetAppId(),
-				req:    msg,
+			if msg.GetData() != nil {
+				tcpReqDataChan <- msg.GetData()
 			}
-
-		case pb.MessageType_HEARTBEAT:
-			fmt.Println("Heartbeat received")
 		}
 	}
 }
@@ -54,21 +51,32 @@ func newTcpConnection(stream pb.TunnelService_TCPTunnelClient, appName string) {
 		Type:  pb.MessageType_NEW_CONNECTION,
 		AppId: appName,
 	}
+
 	if err := stream.Send(msg); err != nil {
 		log.Println("failed to send NEW_CONNECTION:", err)
 	}
 }
 
-func sendTcpResponse(stream pb.TunnelService_TCPTunnelClient, response *tcpreqData) {
-	if err := stream.Send(response.req); err != nil {
-		log.Println("Error: could not send response back")
+func sendTcpResponse(stream pb.TunnelService_TCPTunnelClient, connId string, appName string) {
+	for res := range tcpResDataChan {
+		msg := &pb.TCPMessage{
+			Type:   pb.MessageType_DATA,
+			Data:   res,
+			ConnId: connId,
+			AppId:  appName,
+		}
+
+		if err := stream.Send(msg); err != nil {
+			log.Printf("Cant send response: %v\n", err)
+			return
+		}
 	}
 }
 
-func GrpcTcpListener(appName string) {
+func GrpcTcpListener(appName string, port int) {
 	conn, err := grpc.NewClient("localhost:30000", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("failed to connect: %v", err)
+		log.Fatalf("Failed to connect: %v\n", err)
 	}
 	defer conn.Close()
 
@@ -80,30 +88,7 @@ func GrpcTcpListener(appName string) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go tcpRequestListenerLoop(stream, &wg)
 	newTcpConnection(stream, appName)
-
-	// --- Persistent connection to local client ---
-	go func() {
-		localConn, err := net.Dial("tcp", "localhost:3001")
-		if err != nil {
-			log.Printf("Failed to connect to local test client: %v\n", err)
-			return
-		}
-		defer localConn.Close()
-
-		for response := range tcpResDataChan {
-			fmt.Printf("Forwarding to local client: %v\n", response)
-
-			data := response.req.GetData() // or response.Data, depending on your struct
-
-			_, err := localConn.Write([]byte(data))
-			if err != nil {
-				log.Printf("Failed to send data to local client: %v\n", err)
-				break
-			}
-		}
-	}()
-
-	select {}
+	go tcpListenerLoop(stream, &wg, port, appName)
+	wg.Wait()
 }

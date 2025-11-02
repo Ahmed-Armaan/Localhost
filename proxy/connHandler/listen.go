@@ -23,7 +23,7 @@ type TunnelConn struct {
 	tcpStream  pb.TunnelService_TCPTunnelServer
 }
 
-type tunnelWriter struct {
+type TunnelWriter struct {
 	httpReq *pb.HTTPRequestData
 	tcpReq  *pb.TCPMessage
 	appId   string
@@ -33,7 +33,7 @@ type tunnelWriter struct {
 var (
 	ActiveHttpConn   = make(map[string]TunnelConn)
 	ActiveHttpConnmu sync.RWMutex
-	HttpInreq        = make(chan *tunnelWriter, 2048)
+	HttpInreq        = make(chan *TunnelWriter, 2048)
 	HttpResChans     = make(map[string]chan *pb.HTTPResponseData)
 	HttpResChansmu   sync.RWMutex
 )
@@ -41,7 +41,7 @@ var (
 var (
 	ActiveTcpConn   = make(map[string]TunnelConn)
 	ActiveTcpConnmu sync.RWMutex
-	TcpInreq        = make(chan *tunnelWriter, 2048)
+	TcpInreq        = make(chan *TunnelWriter, 2048)
 	TcpResChans     = make(map[string]chan *pb.TCPMessage)
 	TcpResChansmu   sync.RWMutex
 )
@@ -67,7 +67,7 @@ func HttpRequestListener(request *pb.HTTPRequestData, resChan chan *pb.HTTPRespo
 	HttpResChans[connId] = resChan
 	HttpResChansmu.Unlock()
 
-	HttpInreq <- &tunnelWriter{
+	HttpInreq <- &TunnelWriter{
 		httpReq: request,
 		appId:   appId,
 		connId:  connId,
@@ -79,8 +79,16 @@ func TcpRequestListener(request *pb.TCPMessage, resChan chan *pb.TCPMessage, con
 	TcpResChans[connId] = resChan
 	TcpResChansmu.Unlock()
 
-	TcpInreq <- &tunnelWriter{
+	TcpInreq <- &TunnelWriter{
 		tcpReq: request,
+		appId:  appId,
+		connId: connId,
+	}
+}
+
+func TcpResponder(response *pb.TCPMessage, connId string, appId string) {
+	TcpInreq <- &TunnelWriter{
+		tcpReq: response,
 		appId:  appId,
 		connId: connId,
 	}
